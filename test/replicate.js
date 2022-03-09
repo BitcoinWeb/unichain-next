@@ -1,5 +1,5 @@
 const test = require('brittle')
-const NoiseSecretStream = require('@hyperswarm/secret-stream')
+const NoiseSecretStream = require('@web4/secret-stream')
 const { create, replicate, eventFlush } = require('./helpers')
 
 test('basic replication', async function (t) {
@@ -330,13 +330,13 @@ test('multiplexing multiple times over the same stream', async function (t) {
 })
 
 test('destroying a stream and re-replicating works', async function (t) {
-  const core = await create()
+  const chain = await create()
 
-  while (core.length < 33) await core.append(Buffer.from('#' + core.length))
+  while (chain.length < 33) await chain.append(Buffer.from('#' + chain.length))
 
-  const clone = await create(core.key)
+  const clone = await create(chain.key)
 
-  let s1 = core.replicate(true, { keepAlive: false })
+  let s1 = chain.replicate(true, { keepAlive: false })
   let s2 = clone.replicate(false, { keepAlive: false })
 
   s1.pipe(s2).pipe(s1)
@@ -356,7 +356,7 @@ test('destroying a stream and re-replicating works', async function (t) {
   await new Promise((resolve) => s1.once('close', resolve))
 
   // retry
-  s1 = core.replicate(true, { keepAlive: false })
+  s1 = chain.replicate(true, { keepAlive: false })
   s2 = clone.replicate(false, { keepAlive: false })
 
   s1.pipe(s2).pipe(s1)

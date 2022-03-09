@@ -1,60 +1,60 @@
 const test = require('brittle')
 const ram = require('random-access-memory')
 
-const Hypercore = require('../')
+const Unichain = require('../')
 const { create } = require('./helpers')
 
 test('basic', async function (t) {
-  const core = await create()
+  const chain = await create()
   let appends = 0
 
-  t.is(core.length, 0)
-  t.is(core.byteLength, 0)
-  t.is(core.writable, true)
-  t.is(core.readable, true)
+  t.is(chain.length, 0)
+  t.is(chain.byteLength, 0)
+  t.is(chain.writable, true)
+  t.is(chain.readable, true)
 
-  core.on('append', function () {
+  chain.on('append', function () {
     appends++
   })
 
-  await core.append('hello')
-  await core.append('world')
+  await chain.append('hello')
+  await chain.append('world')
 
-  t.is(core.length, 2)
-  t.is(core.byteLength, 10)
+  t.is(chain.length, 2)
+  t.is(chain.byteLength, 10)
   t.is(appends, 2)
 
   t.end()
 })
 
 test('session', async function (t) {
-  const core = await create()
+  const chain = await create()
 
-  const session = core.session()
+  const session = chain.session()
 
   await session.append('test')
-  t.alike(await core.get(0), Buffer.from('test'))
+  t.alike(await chain.get(0), Buffer.from('test'))
   t.alike(await session.get(0), Buffer.from('test'))
   t.end()
 })
 
 test('close', async function (t) {
-  const core = await create()
-  await core.append('hello world')
+  const chain = await create()
+  await chain.append('hello world')
 
-  await core.close()
+  await chain.close()
 
   try {
-    await core.get(0)
-    t.fail('core should be closed')
+    await chain.get(0)
+    t.fail('chain should be closed')
   } catch {
-    t.pass('get threw correctly when core was closed')
+    t.pass('get threw correctly when chain was closed')
   }
 })
 
 test('close multiple', async function (t) {
-  const core = await create()
-  await core.append('hello world')
+  const chain = await create()
+  await chain.append('hello world')
 
   const ev = t.test('events')
 
@@ -62,18 +62,18 @@ test('close multiple', async function (t) {
 
   let i = 0
 
-  core.on('close', () => ev.is(i++, 0, 'on close'))
-  core.close().then(() => ev.is(i++, 1, 'first close'))
-  core.close().then(() => ev.is(i++, 2, 'second close'))
-  core.close().then(() => ev.is(i++, 3, 'third close'))
+  chain.on('close', () => ev.is(i++, 0, 'on close'))
+  chain.close().then(() => ev.is(i++, 1, 'first close'))
+  chain.close().then(() => ev.is(i++, 2, 'second close'))
+  chain.close().then(() => ev.is(i++, 3, 'third close'))
 
   await ev
 })
 
 test('storage options', async function (t) {
-  const core = new Hypercore({ storage: ram })
-  await core.append('hello')
-  t.alike(await core.get(0), Buffer.from('hello'))
+  const chain = new Unichain({ storage: ram })
+  await chain.append('hello')
+  t.alike(await chain.get(0), Buffer.from('hello'))
   t.end()
 })
 
@@ -82,35 +82,35 @@ test(
   function (t) {
     const key = Buffer.alloc(33).fill('a')
 
-    const core = new Hypercore(ram, key, { crypto: {} })
+    const chain = new Unichain(ram, key, { crypto: {} })
 
-    t.is(core.key, key)
-    t.pass('creating a core with more than 32 byteLength key did not throw')
+    t.is(chain.key, key)
+    t.pass('creating a chain with more than 32 byteLength key did not throw')
   }
 )
 
 test('createIfMissing', async function (t) {
-  const core = new Hypercore(ram, { createIfMissing: false })
+  const chain = new Unichain(ram, { createIfMissing: false })
 
-  t.exception(core.ready())
+  t.exception(chain.ready())
 })
 
 test('reopen and overwrite', async function (t) {
   const st = {}
-  const core = new Hypercore(open)
+  const chain = new Unichain(open)
 
-  await core.ready()
-  const key = core.key
+  await chain.ready()
+  const key = chain.key
 
-  const reopen = new Hypercore(open)
+  const reopen = new Unichain(open)
 
   await reopen.ready()
-  t.alike(reopen.key, key, 'reopened the core')
+  t.alike(reopen.key, key, 'reopened the chain')
 
-  const overwritten = new Hypercore(open, { overwrite: true })
+  const overwritten = new Unichain(open, { overwrite: true })
 
   await overwritten.ready()
-  t.unlike(overwritten.key, key, 'overwrote the core')
+  t.unlike(overwritten.key, key, 'overwrote the chain')
 
   function open (name) {
     if (st[name]) return st[name]
@@ -122,49 +122,49 @@ test('reopen and overwrite', async function (t) {
 test('truncate event has truncated-length and fork', async function (t) {
   t.plan(2)
 
-  const core = new Hypercore(ram)
+  const chain = new Unichain(ram)
 
-  core.on('truncate', function (length, fork) {
+  chain.on('truncate', function (length, fork) {
     t.is(length, 2)
     t.is(fork, 1)
   })
 
-  await core.append(['a', 'b', 'c'])
-  await core.truncate(2)
+  await chain.append(['a', 'b', 'c'])
+  await chain.truncate(2)
 })
 
-test('treeHash gets the tree hash at a given core length', async function (t) {
-  const core = new Hypercore(ram)
-  await core.ready()
+test('treeHash gets the tree hash at a given chain length', async function (t) {
+  const chain = new Unichain(ram)
+  await chain.ready()
 
-  const { core: { tree } } = core
+  const { chain: { tree } } = chain
 
   const hashes = [tree.hash()]
 
   for (let i = 1; i < 10; i++) {
-    await core.append([`${i}`])
+    await chain.append([`${i}`])
     hashes.push(tree.hash())
   }
 
   for (let i = 0; i < 10; i++) {
-    t.alike(await core.treeHash(i), hashes[i])
+    t.alike(await chain.treeHash(i), hashes[i])
   }
 })
 
 test('snapshot locks the state', async function (t) {
-  const core = new Hypercore(ram)
-  await core.ready()
+  const chain = new Unichain(ram)
+  await chain.ready()
 
-  const a = core.snapshot()
+  const a = chain.snapshot()
 
-  await core.append('a')
+  await chain.append('a')
 
   t.is(a.length, 0)
-  t.is(core.length, 1)
+  t.is(chain.length, 1)
 
-  const b = core.snapshot()
+  const b = chain.snapshot()
 
-  await core.append('c')
+  await chain.append('c')
 
   t.is(a.length, 0)
   t.is(b.length, 1)

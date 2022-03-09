@@ -1,18 +1,18 @@
-const Hypercore = require('../')
+const Unichain = require('../')
 const streamx = require('streamx')
-const replicator = require('@hyperswarm/replicator')
+const replicator = require('@web4/replicator')
 
-const core = new Hypercore('/tmp/movie')
+const chain = new Unichain('/tmp/movie')
 
 if (process.argv[2] === 'bench') bench()
 else if (process.argv[2]) importData()
 else start()
 
 class ByteStream extends streamx.Readable {
-  constructor (core, byteOffset, byteLength) {
+  constructor (chain, byteOffset, byteLength) {
     super()
 
-    this.core = core
+    this.chain = chain
     this.byteOffset = byteOffset
     this.byteLength = byteLength
     this.index = 0
@@ -28,14 +28,14 @@ class ByteStream extends streamx.Readable {
     }
 
     if (this.byteOffset > 0) {
-      const [block, byteOffset] = await core.seek(this.byteOffset)
+      const [block, byteOffset] = await chain.seek(this.byteOffset)
       this.byteOffset = 0
       this.index = block + 1
       this._select(this.index)
-      data = (await core.get(block)).slice(byteOffset)
+      data = (await chain.get(block)).slice(byteOffset)
     } else {
       this._select(this.index + 1)
-      data = await core.get(this.index++)
+      data = await chain.get(this.index++)
     }
 
     if (data.length >= this.byteLength) {
@@ -53,7 +53,7 @@ class ByteStream extends streamx.Readable {
 
   _select (index) {
     if (this.range !== null) this.range.destroy(null)
-    this.range = this.core.download({ start: index, end: index + 32, linear: true })
+    this.range = this.chain.download({ start: index, end: index + 32, linear: true })
   }
 
   _destroy (cb) {
@@ -63,11 +63,11 @@ class ByteStream extends streamx.Readable {
 }
 
 async function bench () {
-  await core.ready()
+  await chain.ready()
 
   console.time()
-  for (let i = 0; i < core.length; i++) {
-    await core.get(i)
+  for (let i = 0; i < chain.length; i++) {
+    await chain.get(i)
   }
   console.timeEnd()
 }
@@ -76,15 +76,15 @@ async function start () {
   const http = require('http')
   const parse = require('range-parser')
 
-  await core.ready()
+  await chain.ready()
 
-  core.on('download', (index) => console.log('Downloaded block #' + index))
-  core.download({ start: 0, end: 1 })
+  chain.on('download', (index) => console.log('Downloaded block #' + index))
+  chain.download({ start: 0, end: 1 })
 
   // hack until we update the replicator
-  core.ready = (cb) => cb(null)
+  chain.ready = (cb) => cb(null)
 
-  replicator(core, {
+  replicator(chain, {
     discoveryKey: require('crypto').createHash('sha256').update('http').digest(),
     announce: true,
     lookup: true
@@ -97,13 +97,13 @@ async function start () {
     let s
 
     if (req.headers.range) {
-      const range = parse(core.byteLength, req.headers.range)[0]
+      const range = parse(chain.byteLength, req.headers.range)[0]
       const byteLength = range.end - range.start + 1
       res.statusCode = 206
-      res.setHeader('Content-Range', 'bytes ' + range.start + '-' + range.end + '/' + core.byteLength)
-      s = new ByteStream(core, range.start, byteLength)
+      res.setHeader('Content-Range', 'bytes ' + range.start + '-' + range.end + '/' + chain.byteLength)
+      s = new ByteStream(chain, range.start, byteLength)
     } else {
-      s = new ByteStream(core, 0, core.byteLength)
+      s = new ByteStream(chain, 0, chain.byteLength)
     }
 
     res.setHeader('Content-Length', s.byteLength)
@@ -116,8 +116,8 @@ async function importData () {
   const rs = fs.createReadStream(process.argv[2])
 
   for await (const data of rs) {
-    await core.append(data)
+    await chain.append(data)
   }
 
-  console.log('done!', core)
+  console.log('done!', chain)
 }

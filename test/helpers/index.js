@@ -1,11 +1,11 @@
-const Hypercore = require('../../')
+const Unichain = require('../../')
 const ram = require('random-access-memory')
 
 module.exports = {
   async create (...args) {
-    const core = new Hypercore(ram, ...args)
-    await core.ready()
-    return core
+    const chain = new Unichain(ram, ...args)
+    await chain.ready()
+    return chain
   },
 
   replicate (a, b, t) {

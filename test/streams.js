@@ -3,7 +3,7 @@ const test = require('brittle')
 const { create } = require('./helpers')
 
 test('basic read stream', async function (t) {
-  const core = await create()
+  const chain = await create()
 
   const expected = [
     'hello',
@@ -12,9 +12,9 @@ test('basic read stream', async function (t) {
     'welt'
   ]
 
-  await core.append(expected)
+  await chain.append(expected)
 
-  for await (const data of core.createReadStream()) {
+  for await (const data of chain.createReadStream()) {
     t.alike(data.toString(), expected.shift())
   }
 
@@ -22,7 +22,7 @@ test('basic read stream', async function (t) {
 })
 
 test('read stream with start / end', async function (t) {
-  const core = await create()
+  const chain = await create()
 
   const datas = [
     'hello',
@@ -31,12 +31,12 @@ test('read stream with start / end', async function (t) {
     'welt'
   ]
 
-  await core.append(datas)
+  await chain.append(datas)
 
   {
     const expected = datas.slice(1)
 
-    for await (const data of core.createReadStream({ start: 1 })) {
+    for await (const data of chain.createReadStream({ start: 1 })) {
       t.alike(data.toString(), expected.shift())
     }
 
@@ -46,7 +46,7 @@ test('read stream with start / end', async function (t) {
   {
     const expected = datas.slice(2, 3)
 
-    for await (const data of core.createReadStream({ start: 2, end: 3 })) {
+    for await (const data of chain.createReadStream({ start: 2, end: 3 })) {
       t.alike(data.toString(), expected.shift())
     }
 
@@ -55,7 +55,7 @@ test('read stream with start / end', async function (t) {
 })
 
 test('basic write+read stream', async function (t) {
-  const core = await create()
+  const chain = await create()
 
   const expected = [
     'hello',
@@ -64,14 +64,14 @@ test('basic write+read stream', async function (t) {
     'welt'
   ]
 
-  const ws = core.createWriteStream()
+  const ws = chain.createWriteStream()
 
   for (const data of expected) ws.write(data)
   ws.end()
 
   await new Promise(resolve => ws.on('finish', resolve))
 
-  for await (const data of core.createReadStream()) {
+  for await (const data of chain.createReadStream()) {
     t.alike(data.toString(), expected.shift())
   }
 

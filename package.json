@@ -1,14 +1,14 @@
 {
-  "name": "hypercore",
-  "version": "10.0.0-alpha.24",
-  "description": "Hypercore 10",
+  "name": "@web4/unichain",
+  "version": "2.0.0-alpha.1",
+  "description": "Unichain 2",
   "main": "index.js",
   "scripts": {
     "test": "standard && brittle test/*.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hypercore-protocol/hypercore.git"
+    "url": "git+https://github.com/bitwebs/unichain.git"
   },
   "contributors": [
     {
@@ -24,15 +24,15 @@
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/hypercore-protocol/hypercore/issues"
+    "url": "https://github.com/bitwebs/unichain/issues"
   },
-  "homepage": "https://github.com/hypercore-protocol/hypercore#readme",
+  "homepage": "https://github.com/bitwebs/unichain#readme",
   "files": [
     "index.js",
     "lib/**.js"
   ],
   "dependencies": {
-    "@hyperswarm/secret-stream": "^5.0.0",
+    "@web4/secret-stream": "^1.0.0",
     "b4a": "^1.1.0",
     "big-sparse-array": "^1.0.2",
     "codecs": "^3.0.0",
@@ -40,7 +40,7 @@
     "crc32-universal": "^1.0.1",
     "events": "^3.3.0",
     "flat-tree": "^1.9.0",
-    "hypercore-crypto": "^3.1.0",
+    "@web4/bitweb-crypto": "^1.0.0",
     "is-options": "^1.0.1",
     "random-access-file": "^2.1.4",
     "random-array-iterator": "^1.0.0",
@@ -50,7 +50,7 @@
   },
   "devDependencies": {
     "brittle": "^2.0.0",
-    "hyperswarm": "next",
+    "@web4/bitswarm": "next",
     "random-access-memory": "^3.1.2",
     "standard": "^16.0.3",
     "tmp-promise": "^3.0.2"

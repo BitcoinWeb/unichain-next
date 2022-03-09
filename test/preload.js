@@ -1,30 +1,30 @@
-const crypto = require('hypercore-crypto')
+const crypto = require('@web4/bitweb-crypto')
 const test = require('brittle')
 const ram = require('random-access-memory')
-const Hypercore = require('../')
+const Unichain = require('../')
 
 test('preload - storage', async function (t) {
-  const core = new Hypercore(null, {
+  const chain = new Unichain(null, {
     preload: () => {
       return { storage: ram }
     }
   })
-  await core.ready()
+  await chain.ready()
 
-  await core.append('hello world')
-  t.is(core.length, 1)
-  t.alike(await core.get(0), Buffer.from('hello world'))
+  await chain.append('hello world')
+  t.is(chain.length, 1)
+  t.alike(await chain.get(0), Buffer.from('hello world'))
 
   t.end()
 })
 
-test('preload - from another core', async function (t) {
+test('preload - from another chain', async function (t) {
   t.plan(2)
 
-  const first = new Hypercore(ram)
+  const first = new Unichain(ram)
   await first.ready()
 
-  const second = new Hypercore(null, {
+  const second = new Unichain(null, {
     preload: () => {
       return { from: first }
     }
@@ -37,22 +37,22 @@ test('preload - from another core', async function (t) {
 
 test('preload - custom keypair', async function (t) {
   const keyPair = crypto.keyPair()
-  const core = new Hypercore(ram, keyPair.publicKey, {
+  const chain = new Unichain(ram, keyPair.publicKey, {
     preload: () => {
       return { keyPair }
     }
   })
-  await core.ready()
+  await chain.ready()
 
-  t.ok(core.writable)
-  t.is(core.key, keyPair.publicKey)
+  t.ok(chain.writable)
+  t.is(chain.key, keyPair.publicKey)
 
   t.end()
 })
 
 test('preload - sign/storage', async function (t) {
   const keyPair = crypto.keyPair()
-  const core = new Hypercore(null, keyPair.publicKey, {
+  const chain = new Unichain(null, keyPair.publicKey, {
     valueEncoding: 'utf-8',
     preload: () => {
       return {
@@ -61,12 +61,12 @@ test('preload - sign/storage', async function (t) {
       }
     }
   })
-  await core.ready()
+  await chain.ready()
 
-  t.ok(core.writable)
-  await core.append('hello world')
-  t.is(core.length, 1)
-  t.is(await core.get(0), 'hello world')
+  t.ok(chain.writable)
+  await chain.append('hello world')
+  t.is(chain.length, 1)
+  t.is(await chain.get(0), 'hello world')
 
   t.end()
 })

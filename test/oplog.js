@@ -9,7 +9,7 @@ const Oplog = require('../lib/oplog')
 
 const STORAGE_FILE_NAME = 'oplog-test-storage'
 const STORAGE_FILE_PATH = p.join(__dirname, STORAGE_FILE_NAME)
-const SHOULD_ERROR = Symbol('hypercore-oplog-should-error')
+const SHOULD_ERROR = Symbol('unichain-oplog-should-error')
 
 test.configure({ serial: true })
 
@@ -191,7 +191,7 @@ test('oplog - header invalid checksum', async function (t) {
     t.alike(header, Buffer.from('a'))
   }
 
-  // Invalidate the second header's checksum -- the hypercore is now corrupted
+  // Invalidate the second header's checksum -- the unichain is now corrupted
   await new Promise((resolve, reject) => {
     storage.write(8, Buffer.from('b'), err => {
       if (err) return reject(err)

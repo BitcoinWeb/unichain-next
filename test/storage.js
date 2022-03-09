@@ -1,31 +1,31 @@
 const test = require('brittle')
 const sodium = require('sodium-universal')
-const crypto = require('hypercore-crypto')
+const crypto = require('@web4/bitweb-crypto')
 const RAM = require('random-access-memory')
-const Hypercore = require('..')
+const Unichain = require('..')
 
 const keyPair = crypto.keyPair(Buffer.alloc(sodium.crypto_sign_SEEDBYTES, 'seed'))
 
 const encryptionKey = Buffer.alloc(sodium.crypto_stream_KEYBYTES, 'encryption key')
 
 test('storage layout', async function (t) {
-  const core = new Hypercore(RAM, { keyPair })
+  const chain = new Unichain(RAM, { keyPair })
 
   for (let i = 0; i < 10000; i++) {
-    await core.append(Buffer.from([i]))
+    await chain.append(Buffer.from([i]))
   }
 
-  t.snapshot(core.core.blocks.storage.toBuffer().toString('base64'), 'blocks')
-  t.snapshot(core.core.tree.storage.toBuffer().toString('base64'), 'tree')
+  t.snapshot(chain.chain.blocks.storage.toBuffer().toString('base64'), 'blocks')
+  t.snapshot(chain.chain.tree.storage.toBuffer().toString('base64'), 'tree')
 })
 
 test('encrypted storage layout', async function (t) {
-  const core = new Hypercore(RAM, { keyPair, encryptionKey })
+  const chain = new Unichain(RAM, { keyPair, encryptionKey })
 
   for (let i = 0; i < 10000; i++) {
-    await core.append(Buffer.from([i]))
+    await chain.append(Buffer.from([i]))
   }
 
-  t.snapshot(core.core.blocks.storage.toBuffer().toString('base64'), 'blocks')
-  t.snapshot(core.core.tree.storage.toBuffer().toString('base64'), 'tree')
+  t.snapshot(chain.chain.blocks.storage.toBuffer().toString('base64'), 'blocks')
+  t.snapshot(chain.chain.tree.storage.toBuffer().toString('base64'), 'tree')
 })

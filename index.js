@@ -1,25 +1,25 @@
 const { EventEmitter } = require('events')
 const raf = require('random-access-file')
 const isOptions = require('is-options')
-const hypercoreCrypto = require('hypercore-crypto')
+const bitwebCrypto = require('@web4/bitweb-crypto')
 const c = require('compact-encoding')
 const b4a = require('b4a')
 const Xache = require('xache')
-const NoiseSecretStream = require('@hyperswarm/secret-stream')
+const NoiseSecretStream = require('@web4/secret-stream')
 const codecs = require('codecs')
 
 const fsctl = requireMaybe('fsctl') || { lock: noop, sparse: noop }
 
 const Replicator = require('./lib/replicator')
 const Extensions = require('./lib/extensions')
-const Core = require('./lib/core')
+const Chain = require('./lib/chain')
 const BlockEncryption = require('./lib/block-encryption')
 const { ReadStream, WriteStream } = require('./lib/streams')
 
-const promises = Symbol.for('hypercore.promises')
+const promises = Symbol.for('unichain.promises')
 const inspect = Symbol.for('nodejs.util.inspect.custom')
 
-module.exports = class Hypercore extends EventEmitter {
+module.exports = class Unichain extends EventEmitter {
   constructor (storage, key, opts) {
     super()
 
@@ -39,7 +39,7 @@ module.exports = class Hypercore extends EventEmitter {
     if (!opts) opts = {}
 
     if (!opts.crypto && key && key.byteLength !== 32) {
-      throw new Error('Hypercore key should be 32 bytes')
+      throw new Error('Unichain key should be 32 bytes')
     }
 
     if (!storage) storage = opts.storage
@@ -47,8 +47,8 @@ module.exports = class Hypercore extends EventEmitter {
     this[promises] = true
 
     this.storage = null
-    this.crypto = opts.crypto || hypercoreCrypto
-    this.core = null
+    this.crypto = opts.crypto || bitwebCrypto
+    this.chain = null
     this.replicator = null
     this.encryption = null
     this.extensions = opts.extensions || new Extensions()
@@ -138,10 +138,10 @@ module.exports = class Hypercore extends EventEmitter {
     if (this.closing) {
       // This makes the closing logic alot easier. If this turns out to be a problem
       // in practive, open an issue and we'll try to make a solution for it.
-      throw new Error('Cannot make sessions on a closing core')
+      throw new Error('Cannot make sessions on a closing chain')
     }
 
-    const Clz = opts.class || Hypercore
+    const Clz = opts.class || Unichain
     const s = new Clz(this.storage, this.key, {
       ...opts,
       extensions: this.extensions,
@@ -160,7 +160,7 @@ module.exports = class Hypercore extends EventEmitter {
     this.crypto = o.crypto
     this.key = o.key
     this.discoveryKey = o.discoveryKey
-    this.core = o.core
+    this.chain = o.chain
     this.replicator = o.replicator
     this.encryption = o.encryption
     this.writable = !!this.sign
@@ -194,14 +194,14 @@ module.exports = class Hypercore extends EventEmitter {
         ? { publicKey: key, secretKey: null }
         : opts.keyPair
 
-    // This only works if the hypercore was fully loaded,
+    // This only works if the unichain was fully loaded,
     // but we only do this to validate the keypair to help catch bugs so yolo
     if (this.key && keyPair) keyPair.publicKey = this.key
 
     if (opts.sign) {
       this.sign = opts.sign
     } else if (keyPair && keyPair.secretKey) {
-      this.sign = Core.createSigner(this.crypto, keyPair)
+      this.sign = Chain.createSigner(this.crypto, keyPair)
     }
 
     if (isFirst) {
@@ -213,7 +213,7 @@ module.exports = class Hypercore extends EventEmitter {
       }
     }
 
-    if (!this.sign) this.sign = this.core.defaultSign
+    if (!this.sign) this.sign = this.chain.defaultSign
     this.writable = !!this.sign
 
     if (opts.valueEncoding) {
@@ -223,8 +223,8 @@ module.exports = class Hypercore extends EventEmitter {
       this.encodeBatch = opts.encodeBatch
     }
 
-    // This is a hidden option that's only used by Corestore.
-    // It's required so that corestore can load a name from userData before 'ready' is emitted.
+    // This is a hidden option that's only used by Chainstore.
+    // It's required so that chainstore can load a name from userData before 'ready' is emitted.
     if (opts._preready) await opts._preready(this)
 
     this.opened = true
@@ -234,30 +234,30 @@ module.exports = class Hypercore extends EventEmitter {
   async _openCapabilities (keyPair, storage, opts) {
     if (opts.from) return this._openFromExisting(opts.from, opts)
 
-    this.storage = Hypercore.defaultStorage(opts.storage || storage)
+    this.storage = Unichain.defaultStorage(opts.storage || storage)
 
-    this.core = await Core.open(this.storage, {
+    this.chain = await Chain.open(this.storage, {
       createIfMissing: opts.createIfMissing,
       overwrite: opts.overwrite,
       keyPair,
       crypto: this.crypto,
-      onupdate: this._oncoreupdate.bind(this)
+      onupdate: this._onchainupdate.bind(this)
     })
 
     if (opts.userData) {
       for (const [key, value] of Object.entries(opts.userData)) {
-        await this.core.userData(key, value)
+        await this.chain.userData(key, value)
       }
     }
 
-    this.replicator = new Replicator(this.core, {
+    this.replicator = new Replicator(this.chain, {
       onupdate: this._onpeerupdate.bind(this),
       onupload: this._onupload.bind(this)
     })
 
-    this.discoveryKey = this.crypto.discoveryKey(this.core.header.signer.publicKey)
-    this.key = this.core.header.signer.publicKey
-    this.keyPair = this.core.header.signer
+    this.discoveryKey = this.crypto.discoveryKey(this.chain.header.signer.publicKey)
+    this.key = this.chain.header.signer.publicKey
+    this.keyPair = this.chain.header.signer
 
     if (!this.encryption && opts.encryptionKey) {
       this.encryption = new BlockEncryption(opts.encryptionKey, this.key)
@@ -292,13 +292,13 @@ module.exports = class Hypercore extends EventEmitter {
       return
     }
 
-    await this.core.close()
+    await this.chain.close()
 
     this.emit('close', true)
   }
 
   replicate (isInitiator, opts = {}) {
-    const protocolStream = Hypercore.createProtocolStream(isInitiator, opts)
+    const protocolStream = Unichain.createProtocolStream(isInitiator, opts)
     const noiseStream = protocolStream.noiseStream
     const protocol = noiseStream.userData
 
@@ -314,19 +314,19 @@ module.exports = class Hypercore extends EventEmitter {
   get length () {
     return this._snapshot
       ? this._snapshot.length
-      : (this.core === null ? 0 : this.core.tree.length)
+      : (this.chain === null ? 0 : this.chain.tree.length)
   }
 
   get byteLength () {
     return this._snapshot
       ? this._snapshot.byteLength
-      : (this.core === null ? 0 : this.core.tree.byteLength - (this.core.tree.length * this.padding))
+      : (this.chain === null ? 0 : this.chain.tree.byteLength - (this.chain.tree.length * this.padding))
   }
 
   get fork () {
     return this._snapshot
       ? this._snapshot.fork
-      : (this.core === null ? 0 : this.core.tree.fork)
+      : (this.chain === null ? 0 : this.chain.tree.fork)
   }
 
   get peers () {
@@ -353,12 +353,12 @@ module.exports = class Hypercore extends EventEmitter {
     }
   }
 
-  _oncoreupdate (status, bitfield, value, from) {
+  _onchainupdate (status, bitfield, value, from) {
     if (status !== 0) {
       for (let i = 0; i < this.sessions.length; i++) {
         if ((status & 0b10) !== 0) {
           if (this.cache) this.cache.clear()
-          this.sessions[i].emit('truncate', bitfield.start, this.core.tree.fork)
+          this.sessions[i].emit('truncate', bitfield.start, this.chain.tree.fork)
         }
         if ((status & 0b01) !== 0) {
           this.sessions[i].emit('append')
@@ -394,12 +394,12 @@ module.exports = class Hypercore extends EventEmitter {
 
   async setUserData (key, value) {
     if (this.opened === false) await this.opening
-    return this.core.userData(key, value)
+    return this.chain.userData(key, value)
   }
 
   async getUserData (key) {
     if (this.opened === false) await this.opening
-    for (const { key: savedKey, value } of this.core.header.userData) {
+    for (const { key: savedKey, value } of this.chain.header.userData) {
       if (key === savedKey) return value
     }
     return null
@@ -415,7 +415,7 @@ module.exports = class Hypercore extends EventEmitter {
   async seek (bytes) {
     if (this.opened === false) await this.opening
 
-    const s = this.core.tree.seek(bytes, this.padding)
+    const s = this.chain.tree.seek(bytes, this.padding)
 
     return (await s.update()) || this.replicator.requestSeek(s)
   }
@@ -423,16 +423,16 @@ module.exports = class Hypercore extends EventEmitter {
   async has (index) {
     if (this.opened === false) await this.opening
 
-    return this.core.bitfield.get(index)
+    return this.chain.bitfield.get(index)
   }
 
   async get (index, opts) {
     if (this.opened === false) await this.opening
     const c = this.cache && this.cache.get(index)
     if (c) return c
-    const fork = this.core.tree.fork
+    const fork = this.chain.tree.fork
     const b = await this._get(index, opts)
-    if (this.cache && fork === this.core.tree.fork && b) this.cache.set(index, b)
+    if (this.cache && fork === this.chain.tree.fork && b) this.cache.set(index, b)
     return b
   }
 
@@ -441,8 +441,8 @@ module.exports = class Hypercore extends EventEmitter {
 
     let block
 
-    if (this.core.bitfield.get(index)) {
-      block = await this.core.blocks.get(index)
+    if (this.chain.bitfield.get(index)) {
+      block = await this.chain.blocks.get(index)
     } else {
       if (opts && opts.wait === false) return null
       if (opts && opts.onwait) opts.onwait(index)
@@ -502,10 +502,10 @@ module.exports = class Hypercore extends EventEmitter {
 
   async truncate (newLength = 0, fork = -1) {
     if (this.opened === false) await this.opening
-    if (this.writable === false) throw new Error('Core is not writable')
+    if (this.writable === false) throw new Error('Chain is not writable')
 
-    if (fork === -1) fork = this.core.tree.fork + 1
-    await this.core.truncate(newLength, fork, this.sign)
+    if (fork === -1) fork = this.chain.tree.fork + 1
+    await this.chain.truncate(newLength, fork, this.sign)
 
     // TODO: Should propagate from an event triggered by the oplog
     this.replicator.updateAll()
@@ -513,7 +513,7 @@ module.exports = class Hypercore extends EventEmitter {
 
   async append (blocks) {
     if (this.opened === false) await this.opening
-    if (this.writable === false) throw new Error('Core is not writable')
+    if (this.writable === false) throw new Error('Chain is not writable')
 
     blocks = Array.isArray(blocks) ? blocks : [blocks]
 
@@ -527,16 +527,16 @@ module.exports = class Hypercore extends EventEmitter {
       }
     }
 
-    return await this.core.append(buffers, this.sign, { preappend })
+    return await this.chain.append(buffers, this.sign, { preappend })
   }
 
   async treeHash (length) {
     if (length === undefined) {
       await this.ready()
-      length = this.core.length
+      length = this.chain.length
     }
 
-    const roots = await this.core.tree.getRoots(length)
+    const roots = await this.chain.tree.getRoots(length)
     return this.crypto.tree(roots)
   }
 
@@ -610,8 +610,8 @@ function max (arr) {
 }
 
 function preappend (blocks) {
-  const offset = this.core.tree.length
-  const fork = this.core.tree.fork
+  const offset = this.chain.tree.length
+  const fork = this.chain.tree.fork
 
   for (let i = 0; i < blocks.length; i++) {
     this.encryption.encrypt(offset + i, blocks[i], fork)

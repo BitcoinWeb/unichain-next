@@ -1,20 +1,20 @@
-const Hypercore = require('../')
-const Hyperswarm = require('hyperswarm')
+const Unuchain = require('../')
+const Bitswarm = require('@web4/bitswarm')
 
-const core = new Hypercore('./clone', process.argv[2])
+const chain = new Unichain('./clone', process.argv[2])
 
 start()
 
 async function start () {
-  await core.ready()
+  await chain.ready()
 
-  const swarm = new Hyperswarm()
-  swarm.on('connection', socket => core.replicate(socket))
-  swarm.join(core.discoveryKey, { server: false, client: true })
+  const swarm = new Bitswarm()
+  swarm.on('connection', socket => chain.replicate(socket))
+  swarm.join(chain.discoveryKey, { server: false, client: true })
 
-  console.log((await core.get(42)).toString())
-  console.log((await core.get(142)).toString())
-  console.log((await core.get(511)).toString())
-  console.log((await core.get(512)).toString())
-  console.log((await core.get(513)).toString())
+  console.log((await chain.get(42)).toString())
+  console.log((await chain.get(142)).toString())
+  console.log((await chain.get(511)).toString())
+  console.log((await chain.get(512)).toString())
+  console.log((await chain.get(513)).toString())
 }

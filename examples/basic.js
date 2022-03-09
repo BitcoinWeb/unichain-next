@@ -1,10 +1,10 @@
-const Hypercore = require('../')
+const Unichain = require('../')
 
 start()
 
 async function start () {
-  const core = new Hypercore('/tmp/basic')
-  await core.append(['Hello', 'World'])
-  console.log(core)
-  await core.close()
+  const chain = new Unichain('/tmp/basic')
+  await chain.append(['Hello', 'World'])
+  console.log(chain)
+  await chain.close()
 }
